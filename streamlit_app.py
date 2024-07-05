@@ -2,39 +2,51 @@ import altair as alt
 import numpy as np
 import pandas as pd
 import streamlit as st
+import pickle
+from model import get_content_based_recommendations, parse_movie_list, get_movie_details
 
 """
-# Welcome to Streamlit!
+# Movie Recommender System based on Machine Learning
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:.
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
-
-In the meantime, below is an example of what you can do with just a few lines of code:
 """
 
-num_points = st.slider("Number of points in spiral", 1, 10000, 1100)
-num_turns = st.slider("Number of turns in spiral", 1, 300, 31)
+movies = pickle.load(open('artifacts/movies.pkl', 'rb'))
+movie_list = movies['title'].values
+selection = st.selectbox(
+    'Type or select a movie to get a recommendation',
+    movie_list
+)
+# Add custom CSS for padding
+st.markdown(
+    """
+    <style>
+    .movie-container {
+        margin-right: 20px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-indices = np.linspace(0, 1, num_points)
-theta = 2 * np.pi * num_turns * indices
-radius = indices
+if st.button('Show recommendation'):
+    movies = parse_movie_list(get_content_based_recommendations(selection, 5))
+    st.write("Here are your movie recommendations:")
 
-x = radius * np.cos(theta)
-y = radius * np.sin(theta)
+    # Create a grid layout
+    cols = st.columns(5)  # Adjust the number of columns based on your layout preference
 
-df = pd.DataFrame({
-    "x": x,
-    "y": y,
-    "idx": indices,
-    "rand": np.random.randn(num_points),
-})
-
-st.altair_chart(alt.Chart(df, height=700, width=700)
-    .mark_point(filled=True)
-    .encode(
-        x=alt.X("x", axis=None),
-        y=alt.Y("y", axis=None),
-        color=alt.Color("idx", legend=None, scale=alt.Scale()),
-        size=alt.Size("rand", legend=None, scale=alt.Scale(range=[1, 150])),
-    ))
+    for i, movie in enumerate(movies):
+        details = get_movie_details(movie['name'], movie['year'])
+        if details:
+            with cols[i % 5]:  # Loop through columns
+                st.subheader(details['title'])
+                if details['poster_path']:
+                    st.image(details['poster_path'], width=150)
+                else:
+                    st.write("No poster available")
+                
+                # Add horizontal spacing between movies
+                st.write("")  # Or use st.markdown("<br>", unsafe_allow_html=True) for a blank line
+        else:
+            with cols[i % 5]:
+                st.write(f"Details not found for {movie['name']} ({movie['year']})")
